@@ -75,6 +75,27 @@ with col_b:
         save_config(cfg)
         st.success("Saved to mcp.json (API key NOT stored here).")
 
+# Live round-trip test: actually ask the model to reply.
+if st.button("🧪 Send test message (say hello)"):
+    cfg["llm"] = new_llm
+    cfg["ollama"] = new_llm["ollama"]
+    save_config(cfg)
+    with st.spinner("Asking the model to reply..."):
+        try:
+            reply = llm.call_llm(
+                "You are a connectivity test. Reply in one short sentence.",
+                "Say hello and confirm you are working.",
+            )
+            if reply and reply.strip():
+                st.success("✅ Model replied — your key/endpoint works:")
+                st.info(reply.strip())
+            else:
+                st.error("Model returned an empty reply. Check the model name.")
+        except Exception as e:  # noqa: BLE001
+            st.error(f"❌ Test failed: {e}")
+            st.caption("Common causes: wrong/missing OPENAI_API_KEY in secrets, "
+                       "wrong base URL, or a model name your provider doesn't offer.")
+
 # --------------------------------------------------------------------------- #
 # 2. Forum index (Phase 1)
 # --------------------------------------------------------------------------- #
