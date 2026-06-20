@@ -24,6 +24,13 @@ HEADERS = {
 REQUEST_DELAY = 1.5   # seconds between fetches — be polite
 TIMEOUT = 15
 
+# Recognised UserEcho topic/idea statuses (avoids picking up view counts etc.)
+_STATUS_WORDS = re.compile(
+    r"\b(planned|completed|under review|in progress|declined|answered|"
+    r"not a bug|fixed|started|gathering feedback|reviewed|on hold|won.?t fix)\b",
+    re.I,
+)
+
 SKILL = {
     "name": "phase2_scrape",
     "description": "Fetch and parse a single IQAN forum thread into structured text.",
@@ -59,18 +66,19 @@ def scrape_topic(url: str) -> dict:
         cleaned = re.sub(r"\s*/\s*IQAN.*$", "", cleaned).strip()
         result["title"] = cleaned
 
-    for tag in soup.find_all(class_=re.compile(r"status|badge|label", re.I)):
+    # Only accept real UserEcho status labels — not view counts or stray numbers.
+    for tag in soup.find_all(class_=re.compile(r"status|badge|label|state", re.I)):
         text = tag.get_text(strip=True)
-        if text and len(text) < 40:
-            result["status"] = text
+        if text and _STATUS_WORDS.search(text):
+            result["status"] = text[:40]
             break
 
-    for v in soup.find_all(string=re.compile(r"^\+?\d+$")):
-        try:
-            result["votes"] = int(v.strip().replace("+", ""))
+    # Vote/score: only read elements that look vote-related (avoid stray counts).
+    for tag in soup.find_all(class_=re.compile(r"vote|score|rating|points", re.I)):
+        m = re.search(r"-?\d+", tag.get_text(strip=True))
+        if m:
+            result["votes"] = int(m.group(0))
             break
-        except ValueError:
-            pass
 
     body_selectors = [
         {"class": re.compile(r"topic.description|post.body|userecho-comment-body|article.body|kb.article", re.I)},
@@ -100,12 +108,11 @@ def scrape_topic(url: str) -> dict:
         author = author_tag.get_text(strip=True) if author_tag else "Unknown"
 
         reply_vote = 0
-        for v in container.find_all(string=re.compile(r"^\+?\d+$")):
-            try:
-                reply_vote = int(v.strip().replace("+", ""))
+        for vtag in container.find_all(class_=re.compile(r"vote|score|rating|points", re.I)):
+            m = re.search(r"-?\d+", vtag.get_text(strip=True))
+            if m:
+                reply_vote = int(m.group(0))
                 break
-            except ValueError:
-                pass
 
         result["replies"].append({"author": author, "text": text, "votes": reply_vote})
 
