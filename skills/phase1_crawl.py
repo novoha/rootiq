@@ -21,8 +21,9 @@ COMMUNITIES = [
 
 # A topic OR a knowledge-base article both count as an indexable entry.
 _ENTRY_RE = re.compile(r"/(?:topics|articles)/(\d+)-")
-SCROLL_PAUSE = 1.5   # seconds between scrolls
-MAX_SCROLLS = 80     # safety cap (~2500 topics at ~30 per scroll)
+SCROLL_PAUSE = 1.2   # polite delay between page fetches
+MAX_PAGES = 400      # safety cap on pagination depth per category
+MAX_SCROLLS = MAX_PAGES  # back-compat alias (Settings progress bar reads this)
 
 SKILL = {
     "name": "phase1_crawl",
@@ -31,43 +32,57 @@ SKILL = {
 
 
 def crawl_community(page, name, url, progress=None):
-    """Scroll the topic list to load all JS-rendered topics, extract URLs."""
-    page.goto(url, wait_until="networkidle", timeout=30000)
-
+    """
+    Walk the paginated topic/article list (?page=N) and collect every entry.
+    The UserEcho list paginates server-side via ?page=, so we step pages until
+    two consecutive pages add nothing new (or we hit MAX_PAGES).
+    """
     topics = []
     seen = set()
-    prev_count = 0
-    no_change = 0
+    empty_streak = 0
+    sep = "&" if "?" in url else "?"
 
-    for scroll_n in range(MAX_SCROLLS):
-        links = page.query_selector_all("a[href*='/topics/'], a[href*='/articles/']")
-        for link in links:
+    for page_n in range(1, MAX_PAGES + 1):
+        page.goto(f"{url}{sep}page={page_n}",
+                  wait_until="domcontentloaded", timeout=30000)
+        try:
+            page.wait_for_selector("a[href*='/topics/'], a[href*='/articles/']",
+                                   timeout=8000)
+        except Exception:
+            pass
+        time.sleep(SCROLL_PAUSE)
+
+        new = 0
+        for link in page.query_selector_all("a[href*='/topics/'], a[href*='/articles/']"):
             href = link.get_attribute("href") or ""
             if href.startswith("/"):
                 href = "https://forum.iqan.se" + href
             m = _ENTRY_RE.search(href)
-            if m and href not in seen:
-                seen.add(href)
-                title = (link.inner_text() or "").strip()
-                topics.append({
-                    "url": href,
-                    "title": title,
-                    "community": name,
-                    "topic_id": m.group(1),
-                })
+            if not m or href in seen:
+                continue
+            title = (link.inner_text() or "").strip()
+            # Skip junk anchors whose text is just a raw URL (in-content links).
+            if not title or title.lower().startswith("http"):
+                continue
+            seen.add(href)
+            new += 1
+            topics.append({
+                "url": href,
+                "title": title,
+                "community": name,
+                "topic_id": m.group(1),
+            })
 
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        time.sleep(SCROLL_PAUSE)
-
-        if len(topics) == prev_count:
-            no_change += 1
-            if no_change >= 3:
-                break
-        else:
-            no_change = 0
-        prev_count = len(topics)
         if progress:
-            progress(name, scroll_n + 1, len(topics))
+            progress(name, page_n, len(topics))
+        print(f"  [{name}] page {page_n}: +{new} (total {len(topics)})")
+
+        if new == 0:
+            empty_streak += 1
+            if empty_streak >= 2:
+                break  # reached the end of this category
+        else:
+            empty_streak = 0
 
     return topics
 
