@@ -174,10 +174,12 @@ def run_agent(error_input: str, raw_text: str = "", step=None) -> dict:
         return result
     emit("Checking local solution history...", "miss")
 
-    # 3. search index
+    # 3. search index — use the code AND the surrounding log text so descriptive
+    #    faults ("Chassis module / No contact") match KB/article titles too.
     emit("Searching IQAN forum index...")
     max_threads = scraping_settings().get("max_threads_per_query", 3)
-    matches = skills["phase1_crawl"].search_index(error_input, top_n=max_threads)
+    query = f"{error_input} {raw_text}".strip() if raw_text else error_input
+    matches = skills["phase1_crawl"].search_index(query, top_n=max_threads)
     if not matches:
         emit("Searching IQAN forum index...", "no matches")
         return {

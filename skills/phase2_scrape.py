@@ -54,8 +54,9 @@ def scrape_topic(url: str) -> dict:
     title_tag = soup.find("title")
     if title_tag:
         raw = title_tag.get_text()
-        cleaned = re.sub(r"\s*/\s*Software\s*/\s*IQAN.*$", "", raw).strip()
-        cleaned = re.sub(r"\s*/\s*Hardware\s*/\s*IQAN.*$", "", cleaned).strip()
+        # Strip site suffixes like " / Software / IQAN", " / Knowledge base / IQAN".
+        cleaned = re.sub(r"\s*/\s*[^/]+\s*/\s*IQAN.*$", "", raw)
+        cleaned = re.sub(r"\s*/\s*IQAN.*$", "", cleaned).strip()
         result["title"] = cleaned
 
     for tag in soup.find_all(class_=re.compile(r"status|badge|label", re.I)):
@@ -72,8 +73,8 @@ def scrape_topic(url: str) -> dict:
             pass
 
     body_selectors = [
-        {"class": re.compile(r"topic.description|post.body|userecho-comment-body", re.I)},
-        {"class": re.compile(r"description|content|body", re.I)},
+        {"class": re.compile(r"topic.description|post.body|userecho-comment-body|article.body|kb.article", re.I)},
+        {"class": re.compile(r"article|description|content|body", re.I)},
     ]
     for sel in body_selectors:
         tag = soup.find(attrs=sel)

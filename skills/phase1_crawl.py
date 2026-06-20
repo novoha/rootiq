@@ -12,10 +12,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "working_dir" / "topic_index.json"
 
+# Pages to crawl. Communities hold "topics"; the knowledge base holds "articles".
 COMMUNITIES = [
     ("software", "https://forum.iqan.se/communities/1-software/topics"),
     ("hardware", "https://forum.iqan.se/communities/5-hardware/topics"),
+    ("knowledge-base", "https://forum.iqan.se/knowledge-bases/2-knowledge-base"),
 ]
+
+# A topic OR a knowledge-base article both count as an indexable entry.
+_ENTRY_RE = re.compile(r"/(?:topics|articles)/(\d+)-")
 SCROLL_PAUSE = 1.5   # seconds between scrolls
 MAX_SCROLLS = 80     # safety cap (~2500 topics at ~30 per scroll)
 
@@ -35,19 +40,20 @@ def crawl_community(page, name, url, progress=None):
     no_change = 0
 
     for scroll_n in range(MAX_SCROLLS):
-        links = page.query_selector_all("a[href*='/topics/']")
+        links = page.query_selector_all("a[href*='/topics/'], a[href*='/articles/']")
         for link in links:
             href = link.get_attribute("href") or ""
             if href.startswith("/"):
                 href = "https://forum.iqan.se" + href
-            if re.search(r"/topics/\d+-", href) and href not in seen:
+            m = _ENTRY_RE.search(href)
+            if m and href not in seen:
                 seen.add(href)
                 title = (link.inner_text() or "").strip()
                 topics.append({
                     "url": href,
                     "title": title,
                     "community": name,
-                    "topic_id": re.search(r"/topics/(\d+)-", href).group(1),
+                    "topic_id": m.group(1),
                 })
 
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -90,10 +96,11 @@ def run_phase1(progress=None) -> int:
         except json.JSONDecodeError:
             existing = []
 
-    existing_ids = {t["topic_id"]: i for i, t in enumerate(existing)}
+    # Key by URL (a topic and an article can share the same numeric id).
+    existing_by_url = {t["url"]: i for i, t in enumerate(existing)}
     for t in all_topics:
-        if t["topic_id"] in existing_ids:
-            existing[existing_ids[t["topic_id"]]].update(t)
+        if t["url"] in existing_by_url:
+            existing[existing_by_url[t["url"]]].update(t)
         else:
             existing.append(t)
 
@@ -101,8 +108,18 @@ def run_phase1(progress=None) -> int:
     return len(existing)
 
 
+# Very common words that add noise rather than signal when title-matching.
+_STOPWORDS = {"the", "and", "a", "of", "to", "is", "for", "with", "at", "on",
+              "in", "an", "by", "or", "this", "that", "it", "as", "be"}
+
+
 def search_index(query: str, top_n: int = 5) -> list[dict]:
-    """Keyword-match topic titles in the index. Empty list if not built yet."""
+    """
+    Keyword-match topic/article titles in the index. Accepts a short error code
+    OR a longer blob of OCR'd log text — it tokenises and scores on overlap, so
+    'Chassis module No contact ...' will surface 'No contact and critical CAN
+    bus error'. Empty list if the index isn't built yet.
+    """
     if not OUTPUT.exists():
         return []
     try:
@@ -111,15 +128,19 @@ def search_index(query: str, top_n: int = 5) -> list[dict]:
         return []
 
     query_lower = (query or "").lower()
-    query_words = [w for w in re.split(r"[\s_\-]+", query_lower) if w]
+    # Tokenise on anything that isn't a letter/digit, keep meaningful words.
+    raw_words = re.split(r"[^a-z0-9]+", query_lower)
+    query_words = [w for w in raw_words if len(w) >= 2 and w not in _STOPWORDS]
 
     scored = []
     for t in topics:
         title = t.get("title", "").lower()
+        title_words = set(re.split(r"[^a-z0-9]+", title))
+        score = 0
         if query_lower and query_lower in title:
-            score = 100
+            score = 100  # exact phrase
         else:
-            score = sum(10 for w in query_words if w and w in title)
+            score = sum(10 for w in set(query_words) if w in title_words)
         if score > 0:
             scored.append((score, t))
 

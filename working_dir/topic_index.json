@@ -4,5 +4,6 @@
   {"url": "https://forum.iqan.se/communities/5/topics/871-undervoltage-resets", "title": "Undervoltage resets E-205 on cold start", "community": "hardware", "topic_id": "871"},
   {"url": "https://forum.iqan.se/communities/1/topics/640-can-bus-off-recovery", "title": "CAN bus-off recovery behaviour", "community": "software", "topic_id": "640"},
   {"url": "https://forum.iqan.se/communities/5/topics/512-md4-display-flicker", "title": "MD4 display flicker under load", "community": "hardware", "topic_id": "512"},
-  {"url": "https://forum.iqan.se/communities/1/topics/305-j1939-dtc-mapping", "title": "J1939 DTC mapping best practices", "community": "software", "topic_id": "305"}
+  {"url": "https://forum.iqan.se/communities/1/topics/305-j1939-dtc-mapping", "title": "J1939 DTC mapping best practices", "community": "software", "topic_id": "305"},
+  {"url": "https://forum.iqan.se/knowledge-bases/2/articles/621-no-contact-and-critical-can-bus-error", "title": "No contact and critical CAN bus error", "community": "knowledge-base", "topic_id": "621"}
 ]

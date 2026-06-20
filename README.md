@@ -152,8 +152,12 @@ however, are fully server-rendered.
 
 | Phase | Tech | Job | When |
 |---|---|---|---|
-| **Phase 1** | Playwright (headless Chromium) | Crawl list pages, build a local URL index | Once, refresh monthly |
-| **Phase 2** | `requests` + BeautifulSoup | Fetch individual threads, parse content | Every query (fast, no browser) |
+| **Phase 1** | Playwright (headless Chromium) | Crawl the **Software & Hardware communities** *and* the **Knowledge Base**, build a local index of topic/article URLs | Once, refresh monthly |
+| **Phase 2** | `requests` + BeautifulSoup | Fetch individual threads/articles, parse content | Every query (fast, no browser) |
+
+> Search uses the **whole extracted log text**, not just the cryptic code — so a
+> descriptive fault like *"Chassis module / No contact"* surfaces the KB article
+> *"No contact and critical CAN bus error"*, not only exact code matches.
 
 All searching happens **against the local index** — RootIQ never live-queries the
 forum's search.
