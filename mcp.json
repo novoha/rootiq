@@ -1,6 +1,6 @@
 {
   "llm": {
-    "mode": "offline",
+    "mode": "online",
     "ollama": {
       "url": "http://localhost:11434",
       "model": "phi3",
