@@ -227,6 +227,54 @@ streamlit run app.py
 
 ---
 
+## ☁️ Deploying to Streamlit Community Cloud
+
+RootIQ has **two LLM modes**, switched with the **🌐 Online mode toggle at the top
+of the sidebar** (the choice persists to `llm.mode` in `mcp.json`):
+
+| Mode | LLM | Use when |
+|---|---|---|
+| 🔌 **Offline** (toggle off) | local **Ollama** (`localhost:11434`) | Running on **your own machine** — preserves the "offline, no key" story |
+| ☁️ **Online** (toggle on) | any **OpenAI-compatible** API | Running on **Streamlit Cloud**, where there is no local Ollama |
+
+> **Why online mode is required for the hosted demo:** Streamlit Cloud runs your
+> app on *their* servers, so `localhost:11434` there is *their* machine — it has
+> no Ollama. A hosted LLM is the only thing that works.
+
+### Steps
+
+1. **Push the repo to GitHub** (main file `app.py` at the repo root).
+2. On [share.streamlit.io](https://share.streamlit.io) → **New app** → pick your
+   repo and branch, main file `app.py`, **Deploy**.
+3. **Manage app → ⚙️ Settings → Secrets**, and paste this **one line** (this is
+   the only variable you add, and it is **never** in your repo):
+   ```toml
+   OPENAI_API_KEY = "sk-your-real-key-here"
+   ```
+   The variable name **must be exactly `OPENAI_API_KEY`** — that's what the app
+   reads. Save; the app reboots automatically.
+4. In the running app, flip the **🌐 Online mode** toggle in the sidebar. It will
+   show 🟢 **LLM ready**. (Set the base URL/model once in **Settings → LLM
+   Provider** if you're not using OpenAI's defaults.)
+
+> **Do NOT type the key into the app** — there is no field for it. The app reads it
+> from Streamlit secrets only. The key is never written to `mcp.json`, never
+> logged, and never placed in a prompt.
+
+### Picking an online provider (all OpenAI-compatible — just change the base URL)
+
+| Provider | Base URL | Notes |
+|---|---|---|
+| **OpenAI** (ChatGPT) | `https://api.openai.com/v1` | Paid; `gpt-4o-mini` is cheap & good |
+| **Groq** | `https://api.groq.com/openai/v1` | **Free tier**, very fast (`llama-3.1-8b-instant`) |
+| **OpenRouter** | `https://openrouter.ai/api/v1` | Many models, some **free** |
+
+> 💡 **Yes — a ChatGPT API key works.** Put it in Streamlit secrets as
+> `OPENAI_API_KEY`, set the base URL to OpenAI's, and you're live. If you'd rather
+> not pay, Groq's free tier drops in by changing only the base URL and model.
+
+---
+
 ## 🖱 Using the app
 
 1. **Analyse page** → drag in a PDF/image error log.
@@ -349,10 +397,16 @@ code.
 </details>
 
 <details>
-<summary><b>🔑 Secrets in environment leaking into model context</b></summary>
+<summary><b>🔑 API keys / secrets leaking into model context, logs, or git</b></summary>
 
-- **Risk:** env vars (keys/tokens) ending up in prompts or tool args.
-- **Mitigation:** RootIQ is fully local and uses **no API keys or secrets — there is nothing to leak.** The agent never reads `os.environ` into prompts, and `security_check` additionally blocks `password|secret|token|api_key =` patterns in args. ✅ **Mitigated / largely N/A.**
+- **Risk:** in **online mode** an LLM API key exists, and could leak into prompts, tool args, the rejection/agent logs, or — worst of all — into `mcp.json`, which is committed to git.
+- **Mitigation:**
+  - The key is **never typed into the app** and **never stored in `mcp.json`**. It is resolved at call time from **Streamlit secrets** (`OPENAI_API_KEY`) or, for local runs, an env var.
+  - It is used **only** in the HTTP `Authorization` header to the configured endpoint — **never placed in a prompt, never written to `working_dir/`, never logged.**
+  - `security_check` additionally blocks `password|secret|token|api_key =` patterns from appearing in tool args.
+  - In **offline mode** (local Ollama) there is **no key at all** — nothing to leak.
+
+  ✅ **Mitigated.** ⚠️ *Operator responsibility:* don't paste a key anywhere except the password field or Streamlit secrets.
 </details>
 
 <details>
@@ -422,7 +476,7 @@ satisfies it (the "answer"), with the file you can check.
 | File ops **escaping the working dir** | `_safe_path()` resolves + asserts containment (Windows & Unix correct) | 🔒 Blocked |
 | **Shell commands built from tool output** | `shell=False` + allow/deny lists — metacharacters never reach a shell | 🔒 Mitigated |
 | **Prompt injection** via files / MCP / skill content | Untrusted text delimited as data; model output is **only parsed as JSON, never wired to tools** | 🔒 Mitigated by design |
-| **Secrets in env leaking** into context | Fully local, **no secrets exist**; `os.environ` never read into prompts | 🔒 N/A by design |
+| **Secrets in env leaking** into context | Offline: no key exists. Online: key read from Streamlit secrets/env/session-only field, used solely in the auth header — never in prompts, logs, `mcp.json`, or tool args | 🔒 Mitigated |
 | **Untrusted MCP servers / skills** a user drops in | **Honestly accepted**: skills are trusted first-party code, not sandboxed — documented explicitly | ⚠️ Accepted |
 | SSRF / scraping abuse | `check_url()` domain allowlist + rate limiting before any request | 🔒 Mitigated |
 | Every rejection logged + user-whitelistable | `rejection_log.jsonl` + Settings → Security panel; allowlists are the whitelist | ✅ Done |
@@ -431,7 +485,7 @@ satisfies it (the "answer"), with the file you can check.
 
 | Idea from the brief | ✅ In RootIQ |
 |---|---|
-| **Offline** (Ollama, no cloud, no key) | Core design — works with the network unplugged (history + LLM) |
+| **Offline** (Ollama, no cloud, no key) | Default mode — works with the network unplugged (history + local LLM). An optional **online** mode adds a hosted LLM for cloud deployment |
 | **Safety interlock** (catch + log + whitelist) | `security.py` interlock, `rejection_log.jsonl`, allow/deny lists |
 | **Context management** (don't blow the window) | Scraped content length-capped per thread + top-N replies (`format_for_llm`) |
 | **Evaluation/retry loop** | One strict-reprompt retry on invalid JSON, then graceful degrade |
@@ -489,8 +543,16 @@ pages), but the records themselves are synthetic. Clear them from **Settings →
 Maintenance**.
 
 **Does it work with the network unplugged?**
-Yes — history lookups and the local LLM work fully offline. Forum scraping needs
-network; if it's unavailable, RootIQ degrades to history-only.
+Yes, in **offline mode** — history lookups and the local Ollama LLM work fully
+offline. Forum scraping needs network; if unavailable, RootIQ degrades to
+history-only. For a **hosted** Streamlit demo there's an **online mode** that uses
+any OpenAI-compatible API — see [Deploying to Streamlit Cloud](#-deploying-to-streamlit-community-cloud).
+
+**Can I use a ChatGPT (OpenAI) API key?**
+Yes. Switch to online mode, set the base URL to `https://api.openai.com/v1`, and
+put your key in **Streamlit secrets** as `OPENAI_API_KEY` (never in `mcp.json` —
+that's in git). Free alternatives (Groq, OpenRouter) work by changing only the
+base URL.
 
 **Why is `mcp.json` called that if it isn't a Model Context Protocol server?**
 It's the editable config surface (Ollama/forums/scraping). It is **not** an MCP

@@ -12,6 +12,9 @@ working_dir/_st.log
 working_dir/agent_log.jsonl
 working_dir/rejection_log.jsonl
 
+# Secrets — NEVER commit a real key
+.streamlit/secrets.toml
+
 # Editor / OS
 .claude/
 .vscode/

@@ -7,6 +7,7 @@ import requests
 import streamlit as st
 
 import security
+import llm
 from config import load_config, save_config, WORKING_DIR
 from skills import phase1_crawl
 
@@ -16,25 +17,63 @@ st.title("⚙️ Settings")
 cfg = load_config()
 
 # --------------------------------------------------------------------------- #
-# 1. Ollama
+# 1. LLM provider — offline (Ollama) vs online (OpenAI-compatible)
 # --------------------------------------------------------------------------- #
-st.header("1 · Ollama")
-o = cfg["ollama"]
-url = st.text_input("Ollama URL", value=o["url"])
-model = st.selectbox("Model", ["phi3", "llama3", "mistral", "gemma2"],
-                     index=max(0, ["phi3", "llama3", "mistral", "gemma2"].index(o["model"])
-                               if o["model"] in ["phi3", "llama3", "mistral", "gemma2"] else 0))
-if st.button("Test connection"):
-    try:
-        r = requests.get(url, timeout=3)
-        st.success("Ollama reachable ✅" if r.status_code == 200 else f"HTTP {r.status_code}")
-    except requests.RequestException as e:
-        st.error(f"Unreachable: {e}")
-if st.button("Save Ollama settings"):
-    cfg["ollama"]["url"] = url
-    cfg["ollama"]["model"] = model
-    save_config(cfg)
-    st.success("Saved to mcp.json")
+st.header("1 · LLM Provider")
+lc = llm.llm_config()
+mode = lc["mode"]
+st.caption(f"Current mode: **{mode.upper()}** — switch it with the 🌐 toggle in "
+           f"the sidebar. Below you can edit the endpoint/model for this mode.")
+
+if mode == "offline":
+    st.caption("Runs against a local Ollama. Works on a machine where Ollama is "
+               "reachable — **not** on Streamlit Cloud (no localhost LLM there).")
+    ourl = st.text_input("Ollama URL", value=lc["ollama"]["url"])
+    omodels = ["phi3", "llama3", "mistral", "gemma2"]
+    cur = lc["ollama"]["model"]
+    omodel = st.selectbox("Ollama model", omodels,
+                          index=omodels.index(cur) if cur in omodels else 0)
+    new_llm = {"mode": "offline",
+               "ollama": {"url": ourl, "model": omodel,
+                          "timeout": lc["ollama"].get("timeout", 120)},
+               "online": lc["online"]}
+else:
+    st.caption("Runs against any OpenAI-compatible API — use this for the hosted "
+               "Streamlit app.")
+    base = st.text_input(
+        "API base URL", value=lc["online"]["base_url"],
+        help="OpenAI: https://api.openai.com/v1 · "
+             "Groq: https://api.groq.com/openai/v1 · "
+             "OpenRouter: https://openrouter.ai/api/v1",
+    )
+    omodel = st.text_input("Model", value=lc["online"]["model"],
+                           help="e.g. gpt-4o-mini, llama-3.1-8b-instant")
+    # The key is provided via Streamlit secrets — NOT typed here.
+    if llm.api_key_present():
+        st.success("API key loaded from Streamlit secrets ✅")
+    else:
+        st.info("No API key found. Add `OPENAI_API_KEY` in **Manage app → "
+                "Settings → Secrets** (or as a local env var). The key is never "
+                "entered in this app.")
+    new_llm = {"mode": "online",
+               "ollama": lc["ollama"],
+               "online": {"base_url": base, "model": omodel,
+                          "timeout": lc["online"].get("timeout", 120)}}
+
+col_a, col_b = st.columns(2)
+with col_a:
+    if st.button("Test connection"):
+        cfg["llm"] = new_llm
+        cfg["ollama"] = new_llm["ollama"]
+        save_config(cfg)
+        ok, msg = llm.test_connection()
+        (st.success if ok else st.error)(msg)
+with col_b:
+    if st.button("Save LLM settings"):
+        cfg["llm"] = new_llm
+        cfg["ollama"] = new_llm["ollama"]  # keep back-compat block in sync
+        save_config(cfg)
+        st.success("Saved to mcp.json (API key NOT stored here).")
 
 # --------------------------------------------------------------------------- #
 # 2. Forum index (Phase 1)

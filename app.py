@@ -8,7 +8,8 @@ import json
 import streamlit as st
 
 import agent
-from config import ollama_settings
+import llm
+from config import load_config, save_config
 from skills import extract_log, save_solution, phase1_crawl
 
 st.set_page_config(page_title="RootIQ", page_icon="🔧", layout="wide")
@@ -36,11 +37,28 @@ def render_sidebar():
     st.sidebar.caption("PLC Error Intelligence — Diagnose faster, fix smarter.")
     st.sidebar.markdown("---")
 
-    if agent.ollama_online():
-        st.sidebar.markdown("🟢 **Ollama online** "
-                            f"(`{ollama_settings()['model']}`)")
+    # Offline / Online mode toggle (persists to mcp.json so the agent sees it)
+    online = st.sidebar.toggle(
+        "🌐 Online mode",
+        value=(llm.current_mode() == "online"),
+        help="Off = offline, local Ollama. "
+             "On = hosted API using the OPENAI_API_KEY in Streamlit secrets.",
+    )
+    desired = "online" if online else "offline"
+    if desired != llm.current_mode():
+        lc = llm.llm_config()
+        cfg = load_config()
+        cfg["llm"] = {"mode": desired, "ollama": lc["ollama"], "online": lc["online"]}
+        save_config(cfg)
+        st.rerun()
+
+    label = llm.provider_label()
+    if llm.llm_online():
+        st.sidebar.markdown("🟢 **LLM ready**")
+        st.sidebar.caption(label)
     else:
-        st.sidebar.markdown("🔴 **Ollama offline** — solutions from history only")
+        st.sidebar.markdown("🔴 **LLM unavailable** — solutions from history only")
+        st.sidebar.caption(label)
 
     stats = phase1_crawl.index_stats()
     if stats["exists"] and stats["count"]:

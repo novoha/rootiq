@@ -24,9 +24,8 @@ import importlib
 import datetime
 from pathlib import Path
 
-import requests
-
-from config import ollama_settings, scraping_settings
+import llm
+from config import scraping_settings
 from security import security_check
 
 ROOT = Path(__file__).resolve().parent
@@ -55,36 +54,11 @@ def load_skills() -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# Ollama call
+# LLM access (provider-agnostic: local Ollama OR online OpenAI-compatible API)
 # --------------------------------------------------------------------------- #
 def ollama_online() -> bool:
-    cfg = ollama_settings()
-    try:
-        r = requests.get(cfg["url"], timeout=3)
-        return r.status_code == 200
-    except requests.RequestException:
-        return False
-
-
-def call_ollama(system: str, user: str) -> str:
-    """POST to Ollama /api/chat and return the assistant message content."""
-    cfg = ollama_settings()
-    payload = {
-        "model": cfg["model"],
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "stream": False,
-        "options": {"temperature": 0.1},
-    }
-    r = requests.post(
-        f"{cfg['url'].rstrip('/')}/api/chat",
-        json=payload,
-        timeout=cfg.get("timeout", 120),
-    )
-    r.raise_for_status()
-    return r.json().get("message", {}).get("content", "")
+    """Back-compat alias — true if the *active* LLM provider is usable."""
+    return llm.llm_online()
 
 
 # --------------------------------------------------------------------------- #
@@ -141,12 +115,12 @@ def _parse_json(text: str) -> dict | None:
 
 
 def generate_solution(error_input: str, forum_content: str) -> dict:
-    """Call Ollama, parse JSON, retry once stricter, then degrade gracefully."""
-    cfg = ollama_settings()
-    raw = call_ollama(SYSTEM_PROMPT, _build_user_prompt(error_input, forum_content))
+    """Call the active LLM, parse JSON, retry once stricter, then degrade."""
+    model = llm.active_model()
+    raw = llm.call_llm(SYSTEM_PROMPT, _build_user_prompt(error_input, forum_content))
     parsed = _parse_json(raw)
     if parsed is None:
-        raw2 = call_ollama(
+        raw2 = llm.call_llm(
             SYSTEM_PROMPT, _build_user_prompt(error_input, forum_content, strict=True)
         )
         parsed = _parse_json(raw2)
@@ -161,9 +135,9 @@ def generate_solution(error_input: str, forum_content: str) -> dict:
             "source_url": "",
             "confidence": "Low",
             "notes": f"Model did not return valid JSON. Raw output: {raw[:500]}",
-            "model_used": cfg["model"],
+            "model_used": model,
         }
-    parsed["model_used"] = cfg["model"]
+    parsed["model_used"] = model
     return parsed
 
 
