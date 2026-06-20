@@ -1,0 +1,27 @@
+{
+  "ollama": {
+    "url": "http://localhost:11434",
+    "model": "phi3",
+    "timeout": 120
+  },
+  "forums": [
+    {
+      "name": "IQAN Software",
+      "community_url": "https://forum.iqan.se/communities/1-software/topics",
+      "base_url": "https://forum.iqan.se",
+      "enabled": true
+    },
+    {
+      "name": "IQAN Hardware",
+      "community_url": "https://forum.iqan.se/communities/5-hardware/topics",
+      "base_url": "https://forum.iqan.se",
+      "enabled": true
+    }
+  ],
+  "scraping": {
+    "request_delay_seconds": 1.5,
+    "max_threads_per_query": 3,
+    "max_scroll_pages": 80,
+    "scroll_pause_seconds": 1.5
+  }
+}

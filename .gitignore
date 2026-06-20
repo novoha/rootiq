@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Streamlit / runtime logs
+working_dir/_run.log
+working_dir/_st.log
+working_dir/agent_log.jsonl
+working_dir/rejection_log.jsonl
+
+# Editor / OS
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Keep these (sample data + screenshots) so the repo demos out of the box:
+#   working_dir/solutions.json
+#   working_dir/topic_index.json
+#   working_dir/screenshots/

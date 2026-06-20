@@ -1,0 +1,10 @@
+streamlit>=1.35.0
+requests>=2.31.0
+pdfminer.six>=20221105
+pytesseract>=0.3.10
+Pillow>=10.0.0
+beautifulsoup4>=4.12.0
+pandas>=2.0.0
+plotly>=5.18.0
+playwright>=1.44.0
+python-dateutil>=2.8.0

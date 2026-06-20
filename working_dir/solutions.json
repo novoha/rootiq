@@ -1,0 +1,59 @@
+[
+  {
+    "id": "a1f0c2d4-1111-4aaa-9bbb-0001",
+    "error_code": "COUT_OVERCURRENT",
+    "device": "IQAN-MC4x",
+    "root_cause": "Output current on channel C1 exceeded the configured threshold, tripping the protection on the MC4x.",
+    "fix_steps": [
+      "Step 1: Inspect wiring and connector on output C1 for shorts or chafing.",
+      "Step 2: Measure load resistance; confirm it is within the actuator spec.",
+      "Step 3: Verify the current limit in IQANdesign matches the actuator rating."
+    ],
+    "source_url": "https://forum.iqan.se/communities/1/topics/1234-cout-overcurrent",
+    "source_type": "forum",
+    "confidence": "High",
+    "notes": "Specific to firmware 6.x. In 7.x the default threshold changed.",
+    "raw_text_snippet": "FAULT LOG: COUT_OVERCURRENT channel C1 ...",
+    "date_saved": "2026-06-12T09:14:00+00:00",
+    "scrape_count": 3,
+    "model_used": "phi3"
+  },
+  {
+    "id": "a1f0c2d4-2222-4aaa-9bbb-0002",
+    "error_code": "CAN01_BUSOFF",
+    "device": "IQAN-MD4",
+    "root_cause": "The CAN controller entered bus-off after exceeding the transmit error counter, usually from termination or baud-rate mismatch.",
+    "fix_steps": [
+      "Step 1: Confirm 120 ohm termination at both physical ends of the bus.",
+      "Step 2: Check that every node shares the same baud rate.",
+      "Step 3: Inspect CAN_H/CAN_L for opens or shorts to supply/ground."
+    ],
+    "source_url": "https://forum.iqan.se/communities/1/topics/192-native-canopen-support",
+    "source_type": "forum",
+    "confidence": "Medium",
+    "notes": "Intermittent bus-off often points to marginal termination rather than wiring faults.",
+    "raw_text_snippet": "CAN01 BUS-OFF detected on MD4 ...",
+    "date_saved": "2026-06-15T13:40:00+00:00",
+    "scrape_count": 1,
+    "model_used": "phi3"
+  },
+  {
+    "id": "a1f0c2d4-3333-4aaa-9bbb-0003",
+    "error_code": "E-205",
+    "device": "IQAN-MC2",
+    "root_cause": "Supply voltage dropped below the brown-out threshold during a high-load transient.",
+    "fix_steps": [
+      "Step 1: Measure battery voltage under load; confirm it stays above 9V.",
+      "Step 2: Check ground and supply harness for voltage drop.",
+      "Step 3: Verify alternator output and battery health."
+    ],
+    "source_url": "https://forum.iqan.se/communities/5/topics/871-undervoltage-resets",
+    "source_type": "forum",
+    "confidence": "High",
+    "notes": "Most common on cold-start with weak batteries.",
+    "raw_text_snippet": "E-205 undervoltage reset ...",
+    "date_saved": "2026-06-18T08:05:00+00:00",
+    "scrape_count": 2,
+    "model_used": "phi3"
+  }
+]
