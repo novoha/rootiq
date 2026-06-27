@@ -8,12 +8,24 @@ from skills import lookup_history
 from config import WORKING_DIR
 
 st.set_page_config(page_title="RootIQ · History", page_icon="📚", layout="wide")
-st.title("📚 Solution History")
 
 solutions = lookup_history.all_solutions()
 
+# Title + always-visible reset control (shown even when history is empty).
+head, reset_col = st.columns([4, 1])
+head.title("📚 Solution History")
+with reset_col:
+    st.write("")  # vertical nudge to align with the title
+    if st.button("🗑️ Reset history", type="primary",
+                 disabled=not solutions, use_container_width=True):
+        from tools import write_file
+        write_file("solutions.json", "[]")
+        st.success("History cleared — starting fresh.")
+        st.rerun()
+
 if not solutions:
-    st.info("No solutions saved yet. Diagnose a log on the Analyse page and save it.")
+    st.info("No solutions saved yet. Diagnose a log on the Analyse page; "
+            "each run is recorded here automatically.")
     st.stop()
 
 df = pd.DataFrame(solutions)
@@ -58,13 +70,3 @@ st.download_button(
     mime="text/csv",
 )
 st.caption(f"Stored at: {WORKING_DIR / 'solutions.json'}")
-
-# Reset — wipe all saved solutions and start fresh.
-st.markdown("---")
-st.subheader("🗑️ Reset history")
-st.caption("Deletes every saved solution. Export above first if you want a backup.")
-if st.button("Reset all history", type="primary"):
-    from tools import write_file
-    write_file("solutions.json", "[]")
-    st.success("History cleared — starting fresh.")
-    st.rerun()
