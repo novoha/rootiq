@@ -67,7 +67,7 @@ def render_sidebar():
         st.sidebar.markdown("⚠️ Index not built — go to **Settings**")
 
     st.sidebar.markdown("---")
-    st.sidebar.caption("Pages: Analyse · History · Reports · Settings")
+    st.sidebar.caption("Pages: Analyse · Batch · History · Reports · Settings")
 
 
 render_sidebar()
