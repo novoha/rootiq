@@ -12,6 +12,8 @@
 ![Security](https://img.shields.io/badge/Security-Interlock%20%2B%20Sandbox-success)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+**Live app: [rootiq.streamlit.app](https://rootiq.streamlit.app/) &nbsp;|&nbsp; Repository: [github.com/novoha/rootiq](https://github.com/novoha/rootiq)**
+
 </div>
 
 ---
@@ -71,7 +73,7 @@ But RootIQ is more than an app — it's an **agent harness**: a reusable core wi
 | 1 | **The harness — working code** | All modules compile; the app runs headless with zero exceptions (see [Verification](#-verification--testing)) |
 | 2 | **At least one loaded extension** | **Five** drop-in skills, auto-discovered at runtime. The headline one — **`extract_log`** — turns an uploaded *problem log* (PDF/image) into text + detected error codes. Drop a new `.py` in `skills/` and it appears with no harness edit. |
 | 3 | **README with install + security discussion** | This file — install for both modes ⬇️ and a per-tool [security discussion](#-security-discussion-the-core-of-the-brief) |
-| 4 | **Presentation with screenshots** | [`PRESENTATION.md`](PRESENTATION.md) + `working_dir/screenshots/` |
+| 4 | **Presentation with screenshots** | [`RootIQ-Presentation.pptx`](RootIQ-Presentation.pptx) (editable) + `working_dir/screenshots/` |
 
 ### Inspiration ideas attempted
 
