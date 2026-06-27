@@ -59,6 +59,22 @@ a drop-in skills loader, editable config, two LLM backends, and a security inter
 
 ---
 
+## Why this matters — a daily bridge
+
+This isn't a toy. I use RootIQ as the **bridge between PLC programming and software**
+in my day-to-day work — the controller throws faults, and this turns them into fixes.
+
+- 🧠 **Known faults → instant reuse.** The history cache turns a recurring fault into a
+  zero-effort, no-LLM, no-network answer. **This alone saves the most time** — the same
+  faults come back, and now they're solved on sight.
+- 🔍 **New faults → reason + search.** Unseen faults are searched against the forum index,
+  scraped **with community comments**, and **reasoned** into a cited fix — then *remembered*,
+  so tomorrow they're "known" too.
+- 📈 **The knowledge compounds.** Every diagnosis grows the cache and the map, so the tool
+  gets faster and smarter the more it's used.
+
+---
+
 ## The pipeline
 
 ```
@@ -92,8 +108,9 @@ The **Analyse** page has three tabs, all feeding the same pipeline & result card
 - **⌨️ Type an error** — paste a code or a fault sentence, no file
 - **📦 Batch (CSV)** — a controller export; de-duped to **unique faults**, diagnosed in one click
 
-![w:560](working_dir/screenshots/01_analyse.png)
+![w:640](working_dir/screenshots/05_batch.png)
 
+> A real IQAN system log (semicolon-delimited, BOM) → **9 unique faults** parsed.
 > Known faults return instantly from history; only **new** faults call the LLM.
 
 ---
@@ -116,7 +133,7 @@ and never parrots a single page.
 
 ## Demo · the knowledge map
 
-![bg right:42% w:430](working_dir/screenshots/03_reports.png)
+![bg right:46% w:680](working_dir/screenshots/06_map.png)
 
 🗺️ **Map** page — a Graphviz graph over every diagnosis:
 
