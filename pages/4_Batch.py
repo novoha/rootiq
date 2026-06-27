@@ -125,59 +125,25 @@ if not counts:
 if skipped:
     st.caption(f"Filtered out {skipped} routine/non-fault row(s).")
 
-targets = sorted(counts, key=lambda t: -counts[t])
+# Unique faults found in the CSV, most frequent first.
+faults = sorted(counts, key=lambda t: -counts[t])
 
-MAX_SHOW = 200
-if len(targets) > MAX_SHOW:
-    st.caption(f"Showing the {MAX_SHOW} most frequent of {len(targets)} unique "
-               f"targets (raise the cap below to diagnose beyond the table).")
-    shown = targets[:MAX_SHOW]
-else:
-    shown = targets
-
-
-def _norm(code: str) -> str:
-    return "".join(ch for ch in code.upper() if ch.isalnum())
-
-
-# Load history once and test membership locally (avoids a file read per target).
-known_codes = {_norm(h.get("error_code", "")) for h in lookup_history.all_solutions()}
-known = {t: _norm(t) in known_codes for t in shown}
-n_new = sum(1 for t in shown if not known[t])
-
-st.markdown(f"**{len(targets)} unique targets** · **{n_new}** not yet in history "
-            f"(only these call the LLM).")
+# Show what was found (read-only preview — no choices to make).
+preview = pd.DataFrame({
+    "fault": faults,
+    "occurrences": [counts[t] for t in faults],
+})
+st.markdown(f"**{len(faults)} unique faults** found across the log.")
+with st.expander("See the unique faults", expanded=False):
+    st.dataframe(preview, use_container_width=True, hide_index=True)
 
 if not llm.llm_online():
-    st.warning(f"LLM not ready ({llm.provider_label()}). New codes will return "
-               "'cannot synthesise'; codes already in history still resolve.")
+    st.warning(f"LLM not ready ({llm.provider_label()}). New faults will return "
+               "'cannot synthesise'; faults already known still resolve from history.")
 
-# --- Browse + select ----------------------------------------------------- #
-table = pd.DataFrame({
-    "diagnose": [False] * len(shown),
-    "target": shown,
-    "occurrences": [counts[t] for t in shown],
-    "in_history": [known[t] for t in shown],
-})
-edited = st.data_editor(
-    table, hide_index=True, use_container_width=True,
-    column_config={
-        "diagnose": st.column_config.CheckboxColumn("diagnose", default=False),
-    },
-    disabled=["target", "occurrences", "in_history"],
-    key="batch_table",
-)
-
-# --- Controls ------------------------------------------------------------ #
-cc1, cc2 = st.columns(2)
-cap = cc1.number_input("Top-N cap for 'Diagnose all'", min_value=1,
-                       max_value=len(targets), value=min(20, len(targets)),
-                       help="Caps cost: only the N most frequent targets run.")
-skip_known = cc2.checkbox("Skip targets already in history", value=True)
-
-b1, b2 = st.columns(2)
-run_all = b1.button("🚀 Diagnose all (top-N)", type="primary", use_container_width=True)
-run_sel = b2.button("Diagnose selected", use_container_width=True)
+# One button: diagnose every unique fault. Known ones are instant (history),
+# unknown ones are scraped from the forum — handled inside run_agent.
+run_all = st.button("🚀 Diagnose all faults", type="primary", use_container_width=True)
 
 
 def run_targets(tlist: list[str]) -> tuple[list[dict], list[dict]]:
@@ -210,36 +176,27 @@ def run_targets(tlist: list[str]) -> tuple[list[dict], list[dict]]:
     return rows, full
 
 
-selected = None
 if run_all:
-    selected = [t for t in targets if not (skip_known and _norm(t) in known_codes)][:cap]
-elif run_sel:
-    selected = edited.loc[edited["diagnose"], "target"].tolist()
+    with st.spinner(f"Diagnosing {len(faults)} fault(s)..."):
+        res, full = run_targets(faults)
+    st.success(f"Done — {len(res)} diagnosed and saved to History.")
+    rdf = pd.DataFrame(res)
+    st.dataframe(rdf, use_container_width=True, hide_index=True)
+    st.download_button(
+        "⬇️ Download results CSV",
+        data=rdf.to_csv(index=False).encode("utf-8"),
+        file_name="rootiq_batch_results.csv", mime="text/csv",
+    )
 
-if selected is not None:
-    if not selected:
-        st.warning("Nothing to diagnose with the current selection/filters.")
-    else:
-        with st.spinner(f"Diagnosing {len(selected)} target(s)..."):
-            res, full = run_targets(selected)
-        st.success(f"Done — {len(res)} diagnosed and saved to History.")
-        rdf = pd.DataFrame(res)
-        st.dataframe(rdf, use_container_width=True, hide_index=True)
-        st.download_button(
-            "⬇️ Download results CSV",
-            data=rdf.to_csv(index=False).encode("utf-8"),
-            file_name="rootiq_batch_results.csv", mime="text/csv",
-        )
-
-        # Per-batch knowledge map — just this CSV's faults, shared sources linked.
-        from mapviz import build_dot
-        dot, stats = build_dot(full, len(full), {"high", "medium", "low"})
-        st.markdown("### 🗺️ Map of this batch")
-        mm1, mm2, mm3 = st.columns(3)
-        mm1.metric("Errors", stats["errors"])
-        mm2.metric("Source threads", stats["sources"])
-        mm3.metric("Shared sources", stats["shared_sources"],
-                   help="Threads cited by more than one error in this batch.")
-        st.graphviz_chart(dot, use_container_width=True)
-        st.caption("🟢 High · 🟠 Medium · 🔴 Low · 📁 source threads (click to open). "
-                   "See the **Map** page for the graph across all history.")
+    # Per-batch knowledge map — just this CSV's faults, shared sources linked.
+    from mapviz import build_dot
+    dot, stats = build_dot(full, len(full), {"high", "medium", "low"})
+    st.markdown("### 🗺️ Map of this batch")
+    mm1, mm2, mm3 = st.columns(3)
+    mm1.metric("Errors", stats["errors"])
+    mm2.metric("Source threads", stats["sources"])
+    mm3.metric("Shared sources", stats["shared_sources"],
+               help="Threads cited by more than one error in this batch.")
+    st.graphviz_chart(dot, use_container_width=True)
+    st.caption("🟢 High · 🟠 Medium · 🔴 Low · 📁 source threads (click to open). "
+               "See the **Map** page for the graph across all history.")
