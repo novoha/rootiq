@@ -99,50 +99,74 @@ def render_markdown(sol: dict) -> str:
 # --------------------------------------------------------------------------- #
 st.title("Analyse PLC Error Log")
 
-uploaded = st.file_uploader(
-    "Upload error log",
-    type=["pdf", "png", "jpg", "jpeg", "tiff", "bmp"],
-)
 
-if uploaded is not None:
-    data = uploaded.read()
-    with st.spinner("Extracting text and error codes..."):
-        extracted = extract_log.run(uploaded.name, data)
-    st.session_state["extracted"] = extracted
+def run_and_store(chosen: str, raw_text: str) -> None:
+    """Run the agent pipeline with a live status panel and store the result."""
+    with st.status("Running RootIQ agent...", expanded=True) as status:
+        def step(label, detail=""):
+            status.write(f"**{label}** {('— ' + detail) if detail else ''}")
 
-extracted = st.session_state.get("extracted")
+        step("Extracting error codes...", chosen)
+        solution = agent.run_agent(chosen, raw_text=raw_text, step=step)
+        st.session_state["solution"] = solution
+        status.update(label="Agent complete", state="complete")
 
-if extracted:
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        with st.expander("Extracted text", expanded=False):
-            st.text(extracted["text"][:5000] or "(no text found)")
-    with col2:
-        st.markdown("**Detected error codes**")
-        codes = extracted["error_codes"]
-        if codes:
-            st.markdown(" ".join(
-                f"<span class='badge-forum'>{c}</span>" for c in codes
-            ), unsafe_allow_html=True)
-        else:
-            st.info("No error codes auto-detected. Enter one manually below.")
 
-    default_code = codes[0] if (codes := extracted["error_codes"]) else ""
-    chosen = st.text_input("Error code / fault to diagnose", value=default_code)
+tab_upload, tab_type = st.tabs(["📄 Upload a log", "⌨️ Type an error"])
 
-    if st.button("🚀 Run RootIQ Agent", type="primary", disabled=not chosen):
-        with st.status("Running RootIQ agent...", expanded=True) as status:
-            log_lines = []
+# --- Path 1: upload a PDF/image log -------------------------------------- #
+with tab_upload:
+    uploaded = st.file_uploader(
+        "Upload error log",
+        type=["pdf", "png", "jpg", "jpeg", "tiff", "bmp"],
+    )
 
-            def step(label, detail=""):
-                line = f"**{label}** {('— ' + detail) if detail else ''}"
-                log_lines.append(line)
-                status.write(line)
+    if uploaded is not None:
+        data = uploaded.read()
+        with st.spinner("Extracting text and error codes..."):
+            extracted = extract_log.run(uploaded.name, data)
+        st.session_state["extracted"] = extracted
 
-            step("Extracting error codes...", chosen)
-            solution = agent.run_agent(chosen, raw_text=extracted["text"], step=step)
-            st.session_state["solution"] = solution
-            status.update(label="Agent complete", state="complete")
+    extracted = st.session_state.get("extracted")
+
+    if extracted:
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            with st.expander("Extracted text", expanded=False):
+                st.text(extracted["text"][:5000] or "(no text found)")
+        with col2:
+            st.markdown("**Detected error codes**")
+            codes = extracted["error_codes"]
+            if codes:
+                st.markdown(" ".join(
+                    f"<span class='badge-forum'>{c}</span>" for c in codes
+                ), unsafe_allow_html=True)
+            else:
+                st.info("No error codes auto-detected. Enter one manually below.")
+
+        default_code = codes[0] if (codes := extracted["error_codes"]) else ""
+        chosen = st.text_input("Error code / fault to diagnose",
+                               value=default_code, key="chosen_upload")
+
+        if st.button("🚀 Run RootIQ Agent", type="primary",
+                     disabled=not chosen, key="run_upload"):
+            run_and_store(chosen, extracted["text"])
+
+# --- Path 2: type an error code / message directly ----------------------- #
+with tab_type:
+    st.caption("No file needed — type an error code or paste a fault message "
+               "and RootIQ will diagnose it the same way.")
+    typed = st.text_area(
+        "Error code or fault message",
+        placeholder="e.g. COUT_OVERCURRENT\n…or a description like "
+                    "'Chassis module / No contact, critical CAN bus error'",
+        key="typed_input",
+        height=120,
+    )
+    if st.button("🚀 Diagnose", type="primary",
+                 disabled=not typed.strip(), key="run_type"):
+        text = typed.strip()
+        run_and_store(text, text)
 
 
 # --------------------------------------------------------------------------- #
