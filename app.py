@@ -8,6 +8,7 @@ import json
 import streamlit as st
 
 import agent
+import batch_view
 import llm
 from config import load_config, save_config
 from skills import extract_log, save_solution, phase1_crawl
@@ -67,7 +68,7 @@ def render_sidebar():
         st.sidebar.markdown("⚠️ Index not built — go to **Settings**")
 
     st.sidebar.markdown("---")
-    st.sidebar.caption("Pages: Analyse · Batch · Map · History · Reports · Settings")
+    st.sidebar.caption("Pages: Analyse · Map · History · Reports · Settings")
 
 
 render_sidebar()
@@ -129,7 +130,9 @@ def run_and_store(chosen: str, raw_text: str) -> None:
         status.update(label="Agent complete", state="complete")
 
 
-tab_upload, tab_type = st.tabs(["📄 Upload a log", "⌨️ Type an error"])
+tab_upload, tab_type, tab_batch = st.tabs(
+    ["📄 Upload a log", "⌨️ Type an error", "📦 Batch (CSV)"]
+)
 
 # --- Path 1: upload a PDF/image log -------------------------------------- #
 with tab_upload:
@@ -184,6 +187,10 @@ with tab_type:
                  disabled=not typed.strip(), key="run_type"):
         text = typed.strip()
         run_and_store(text, text)
+
+# --- Path 3: batch-diagnose a CSV of error logs -------------------------- #
+with tab_batch:
+    batch_view.render()
 
 
 # --------------------------------------------------------------------------- #
