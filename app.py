@@ -91,6 +91,13 @@ def render_markdown(sol: dict) -> str:
         lines.append(f"{i}. {s}")
     if sol.get("notes"):
         lines += ["", "## Notes", sol["notes"]]
+    srcs = sol.get("sources") or []
+    if srcs:
+        lines += ["", "## Sources"]
+        for s in srcs:
+            lines.append(f"{s.get('n','')}. [{s.get('title') or s['url']}]({s['url']})")
+    elif sol.get("source_url"):
+        lines += ["", "## Sources", f"- {sol['source_url']}"]
     return "\n".join(lines)
 
 
@@ -204,6 +211,16 @@ if solution:
 
     if solution.get("notes"):
         st.info(solution["notes"])
+
+    # Every forum thread the answer was reasoned from (cited as [n] above).
+    sources = solution.get("sources") or []
+    if sources:
+        st.markdown(f"**Sources** — reasoned from {len(sources)} forum thread(s):")
+        for s in sources:
+            title = s.get("title") or s["url"]
+            st.markdown(f"{s.get('n','')}. [{title}]({s['url']})")
+    elif solution.get("source_url"):
+        st.markdown(f"**Source:** {solution['source_url']}")
 
     # Build a markdown export
     md_text = render_markdown(solution)

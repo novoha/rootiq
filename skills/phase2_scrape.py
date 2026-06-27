@@ -133,7 +133,7 @@ def format_for_llm(scraped: dict) -> str:
     if scraped["body"]:
         parts.append(f"ORIGINAL POST:\n{scraped['body'][:800]}")
     if scraped["replies"]:
-        parts.append("TOP REPLIES:")
-        for r in scraped["replies"][:4]:
-            parts.append(f"  [{r['author']} | +{r['votes']} votes]\n  {r['text'][:500]}")
+        parts.append("TOP REPLIES (community comments, highest-voted first):")
+        for r in scraped["replies"][:8]:
+            parts.append(f"  [{r['author']} | +{r['votes']} votes]\n  {r['text'][:600]}")
     return "\n\n".join(parts)
