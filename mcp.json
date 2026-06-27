@@ -8,7 +8,7 @@
     },
     "online": {
       "base_url": "https://api.openai.com/v1",
-      "model": "gpt-4o-mini",
+      "model": "gpt-4o",
       "timeout": 120,
       "_comment": "OpenAI-compatible. Works with OpenAI, Groq (https://api.groq.com/openai/v1), OpenRouter (https://openrouter.ai/api/v1), etc. NEVER put the API key here - use Streamlit secrets OPENAI_API_KEY."
     }
