@@ -180,8 +180,9 @@ run_all = b1.button("🚀 Diagnose all (top-N)", type="primary", use_container_w
 run_sel = b2.button("Diagnose selected", use_container_width=True)
 
 
-def run_targets(tlist: list[str]) -> list[dict]:
-    results = []
+def run_targets(tlist: list[str]) -> tuple[list[dict], list[dict]]:
+    """Returns (table_rows, full_solutions). The full solutions feed the map."""
+    rows, full = [], []
     prog = st.progress(0.0, text="Starting...")
     for i, t in enumerate(tlist, 1):
         prog.progress(i / len(tlist), text=f"{i}/{len(tlist)} — {t[:50]}")
@@ -192,7 +193,10 @@ def run_targets(tlist: list[str]) -> list[dict]:
                 save_solution.run(sol)
             except Exception:  # noqa: BLE001
                 pass
-        results.append({
+        # Use the CSV occurrence count for the map's ×N labelling.
+        sol["scrape_count"] = counts[t]
+        full.append(sol)
+        rows.append({
             "target": t,
             "occurrences": counts[t],
             "error_code": sol.get("error_code", ""),
@@ -203,7 +207,7 @@ def run_targets(tlist: list[str]) -> list[dict]:
             "source_url": sol.get("source_url", ""),
         })
     prog.progress(1.0, text="Done")
-    return results
+    return rows, full
 
 
 selected = None
@@ -217,7 +221,7 @@ if selected is not None:
         st.warning("Nothing to diagnose with the current selection/filters.")
     else:
         with st.spinner(f"Diagnosing {len(selected)} target(s)..."):
-            res = run_targets(selected)
+            res, full = run_targets(selected)
         st.success(f"Done — {len(res)} diagnosed and saved to History.")
         rdf = pd.DataFrame(res)
         st.dataframe(rdf, use_container_width=True, hide_index=True)
@@ -226,3 +230,16 @@ if selected is not None:
             data=rdf.to_csv(index=False).encode("utf-8"),
             file_name="rootiq_batch_results.csv", mime="text/csv",
         )
+
+        # Per-batch knowledge map — just this CSV's faults, shared sources linked.
+        from mapviz import build_dot
+        dot, stats = build_dot(full, len(full), {"high", "medium", "low"})
+        st.markdown("### 🗺️ Map of this batch")
+        mm1, mm2, mm3 = st.columns(3)
+        mm1.metric("Errors", stats["errors"])
+        mm2.metric("Source threads", stats["sources"])
+        mm3.metric("Shared sources", stats["shared_sources"],
+                   help="Threads cited by more than one error in this batch.")
+        st.graphviz_chart(dot, use_container_width=True)
+        st.caption("🟢 High · 🟠 Medium · 🔴 Low · 📁 source threads (click to open). "
+                   "See the **Map** page for the graph across all history.")
