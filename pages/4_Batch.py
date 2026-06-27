@@ -7,6 +7,7 @@ code-detected (falling back to the raw text), de-duplicated, and routed through
 the normal agent pipeline. Repeated codes are instant (served from history), so
 only unique, not-yet-seen codes actually call the LLM.
 """
+import csv as pycsv
 import io
 from collections import Counter
 
@@ -28,8 +29,23 @@ if not up:
     st.info("Upload a .csv to begin.")
     st.stop()
 
+
+def read_csv_robust(raw: bytes) -> pd.DataFrame:
+    """Read a CSV regardless of delimiter (; , tab |) and strip a UTF-8 BOM.
+    IQAN system logs are semicolon-delimited with a BOM, which trips pandas'
+    comma default — so sniff the separator from the header line."""
+    text = raw.decode("utf-8-sig", errors="replace")  # utf-8-sig drops the BOM
+    header = next((ln for ln in text.splitlines() if ln.strip()), "")
+    try:
+        delim = pycsv.Sniffer().sniff(header, delimiters=";,\t|").delimiter
+    except Exception:  # noqa: BLE001 — fall back to the most frequent candidate
+        delim = max([";", ",", "\t", "|"], key=header.count) or ","
+    return pd.read_csv(io.StringIO(text), sep=delim, engine="python",
+                       dtype=str, keep_default_na=False)
+
+
 try:
-    df = pd.read_csv(io.BytesIO(up.read()))
+    df = read_csv_robust(up.read())
 except Exception as e:  # noqa: BLE001
     st.error(f"Could not read CSV: {e}")
     st.stop()
@@ -42,24 +58,59 @@ st.markdown(f"**{len(df)} rows · {len(df.columns)} columns**")
 with st.expander("Preview (first 20 rows)"):
     st.dataframe(df.head(20), use_container_width=True, hide_index=True)
 
-col = st.selectbox("Which column holds the error code or message?", list(df.columns))
+# Pick one OR MORE columns; combined per row (e.g. Description + Value), so a
+# fault like "XC44" + "No contact" becomes one meaningful target.
+_pref = [c for c in df.columns
+         if c.strip().lower() in ("description", "value", "message", "fault",
+                                  "error", "code", "alarm")]
+cols = st.multiselect(
+    "Which column(s) describe the error? (combined per row)",
+    list(df.columns), default=_pref or [df.columns[-1]],
+)
+if not cols:
+    st.info("Pick at least one column.")
+    st.stop()
+
+# Skip non-fault bookkeeping rows. Editable so it works for any log format.
+_DEFAULT_IGNORE = ("System started, Application changed, User logged, "
+                   "Clock changed, Machine ID changed, Date and time not set")
+ignore_raw = st.text_input(
+    "Ignore rows containing any of (comma-separated, case-insensitive)",
+    value=_DEFAULT_IGNORE,
+    help="Filters out routine log entries that aren't faults.",
+)
+ignores = [x.strip().lower() for x in ignore_raw.split(",") if x.strip()]
 
 
-def target_for(cell) -> tuple[str | None, str]:
-    """Return (diagnosis target, raw text) for one cell. Mixed-content aware:
-    use the first detected code if any, else the trimmed text itself."""
-    text = str(cell).strip()
-    if not text or text.lower() == "nan":
+def row_text(row) -> str:
+    """Join the chosen columns of one row into a single fault description."""
+    parts = [str(row[c]).strip() for c in cols]
+    parts = [p for p in parts if p and p.lower() != "nan"]
+    return " — ".join(parts)
+
+
+def target_for(text: str) -> tuple[str | None, str]:
+    """Return (diagnosis target, raw text). Use the first detected code if any,
+    else the text itself."""
+    text = (text or "").strip()
+    if not text:
         return None, ""
     codes = extract_log.detect_error_codes(text)
     return (codes[0] if codes else text[:120]), text
 
 
-# Aggregate the column into unique targets + frequency + a representative text.
+# Aggregate rows into unique targets + frequency + a representative text.
 counts: Counter = Counter()
 rep_text: dict[str, str] = {}
-for cell in df[col].tolist():
-    tgt, txt = target_for(cell)
+skipped = 0
+for _, row in df.iterrows():
+    text = row_text(row)
+    if not text:
+        continue
+    if any(x in text.lower() for x in ignores):
+        skipped += 1
+        continue
+    tgt, txt = target_for(text)
     if not tgt:
         continue
     counts[tgt] += 1
@@ -67,8 +118,12 @@ for cell in df[col].tolist():
         rep_text[tgt] = txt
 
 if not counts:
-    st.warning("No usable values in that column.")
+    st.warning("No usable fault rows after filtering. Check the column choice "
+               "or the ignore list.")
     st.stop()
+
+if skipped:
+    st.caption(f"Filtered out {skipped} routine/non-fault row(s).")
 
 targets = sorted(counts, key=lambda t: -counts[t])
 
