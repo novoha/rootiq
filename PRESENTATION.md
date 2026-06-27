@@ -16,6 +16,9 @@ footer: "A secure agent harness · MIT"
 Reads a fault log → reuses past fixes → mines the IQAN forum → synthesises a **cited** solution.
 Every tool call passes a **security interlock** first.
 
+### Victor Otu Hayford
+**Industrial AI, 2026**
+
 *Built for the "Build an Agent Harness" assignment.*
 
 > ▶️ These slides are Marp (markdown → slides) — the same transform the brief mentions,
@@ -249,3 +252,16 @@ streamlit run app.py        # http://localhost:8501
 **RootIQ — diagnose faster, fix smarter. Securely.**
 
 *Code: `app.py`, `agent.py`, `tools.py`, `security.py`, `skills/`, `mcp.json` · README has the full security discussion + diagrams.*
+
+---
+
+<!-- _class: lead -->
+<!-- _paginate: false -->
+
+# 🙏 Thank you
+
+## RootIQ — PLC Error Intelligence
+
+**Victor Otu Hayford** · Industrial AI, 2026
+
+*Questions welcome.*
