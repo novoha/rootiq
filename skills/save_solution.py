@@ -56,7 +56,7 @@ def run(solution: dict) -> dict:
                 entry.get("confidence", "Low"), solution.get("confidence", "Low")
             )
             # Prefer richer fields if the new record has them
-            for k in ("device", "root_cause", "fix_steps", "source_url",
+            for k in ("device", "root_cause", "fix_steps", "source_url", "sources",
                       "source_type", "notes", "model_used", "raw_text_snippet"):
                 if solution.get(k):
                     entry[k] = solution[k]
@@ -70,6 +70,7 @@ def run(solution: dict) -> dict:
         "root_cause": solution.get("root_cause", ""),
         "fix_steps": solution.get("fix_steps", []),
         "source_url": solution.get("source_url", ""),
+        "sources": solution.get("sources", []),
         "source_type": solution.get("source_type", "forum"),
         "confidence": solution.get("confidence", "Low"),
         "notes": solution.get("notes", ""),

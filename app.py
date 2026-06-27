@@ -115,6 +115,16 @@ def run_and_store(chosen: str, raw_text: str) -> None:
 
         step("Extracting error codes...", chosen)
         solution = agent.run_agent(chosen, raw_text=raw_text, step=step)
+        # Record every diagnosis to history automatically (skip security blocks).
+        if solution.get("source_type") != "blocked" and solution.get("error_code"):
+            try:
+                saved = save_solution.run(solution)
+                solution["scrape_count"] = saved.get("scrape_count", 1)
+                solution["_saved"] = True
+                step("Saved to history", f"scrape_count={saved.get('scrape_count', 1)}")
+            except Exception as e:  # noqa: BLE001
+                solution["_saved"] = False
+                step("Could not save to history", str(e))
         st.session_state["solution"] = solution
         status.update(label="Agent complete", state="complete")
 
@@ -234,6 +244,8 @@ if solution:
             mime="text/markdown",
         )
     with c2:
-        if st.button("💾 Save to history"):
+        if solution.get("_saved"):
+            st.success("✅ Auto-saved to history — see the History page.")
+        elif st.button("💾 Save to history"):
             saved = save_solution.run(solution)
             st.success(f"Saved (scrape_count={saved['scrape_count']}).")

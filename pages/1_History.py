@@ -58,3 +58,13 @@ st.download_button(
     mime="text/csv",
 )
 st.caption(f"Stored at: {WORKING_DIR / 'solutions.json'}")
+
+# Reset — wipe all saved solutions and start fresh.
+st.markdown("---")
+st.subheader("🗑️ Reset history")
+st.caption("Deletes every saved solution. Export above first if you want a backup.")
+if st.button("Reset all history", type="primary"):
+    from tools import write_file
+    write_file("solutions.json", "[]")
+    st.success("History cleared — starting fresh.")
+    st.rerun()
