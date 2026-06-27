@@ -19,7 +19,12 @@ Every tool call passes a **security interlock** first.
 ### Victor Otu Hayford
 **Industrial AI, 2026**
 
+🐙 **github.com/novoha/rootiq** · 🚀 **rootiq.streamlit.app**
+
 *Built for the "Build an Agent Harness" assignment.*
+
+> 📑 The **designed slide deck is `PRESENTATION.pdf`** (rendered via `build_slides.py`).
+> This markdown is the readable source.
 
 > ▶️ These slides are Marp (markdown → slides) — the same transform the brief mentions,
 > and `marp` is allow-listed in the harness's own `run_command`. Render: `marp PRESENTATION.md`.

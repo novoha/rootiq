@@ -26,3 +26,8 @@ Thumbs.db
 #   working_dir/solutions.json
 #   working_dir/topic_index.json
 #   working_dir/screenshots/
+
+# Slide-deck build artifacts
+_deck.html
+_render.pdf
+working_dir/_q_*.png
